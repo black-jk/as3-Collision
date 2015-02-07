@@ -1,0 +1,354 @@
+<?xml version="1.0" encoding="utf-8"?>
+<mx:Application xmlns:mx="http://www.adobe.com/2006/mxml" layout="absolute"
+	creationComplete="onCreationComplete();" backgroundGradientAlphas="[1.0, 1.0]" backgroundGradientColors="[#000000, #000000]">
+	
+	<mx:Script>
+	<![CDATA[
+		import blackjk.controls.MessageWindow;
+		import blackjk.math.Vector2;
+		import blackjk.math.LineSegment;
+		import collision.Ground;
+		import collision.Partical;
+		
+		
+		private var wallsList:Array = new Array;
+		private var particalsList:Array = new Array;
+		
+		private function onCreationComplete():void {
+			MessageWindow.beginX = 10;
+			MessageWindow.beginY = 10;
+			MessageWindow.beginW = 950;
+			MessageWindow.beginH = 360;
+			
+			// ---------- ---------- ---------- ---------- ---------- ---------- ----------
+			
+			/*/
+			Ground.gravity = 2;
+			Partical.collisionWallDecay = 0.95;
+			Partical.collisionParticalDecay = 0.95;
+			/*/
+			Ground.gravity = 1;
+			//*/
+			
+			box1.graphics.clear();
+			
+			var a:Vector2 = new Vector2(   1,   1);
+			var b:Vector2 = new Vector2(1000,   1);
+			var c:Vector2 = new Vector2(1000, 600);
+			var d:Vector2 = new Vector2(   1, 600);
+			
+			addWall(new LineSegment(a.clone(), b.clone()));
+			addWall(new LineSegment(b.clone(), c.clone()));
+			addWall(new LineSegment(c.clone(), d.clone()));
+			addWall(new LineSegment(d.clone(), a.clone()));
+			
+			
+			var centerX:Number = 530;
+			var centerY:Number = 300;
+			/*
+			var shiftI:Number = -Math.PI * 0.15;
+			var prevPoint:Vector2;
+			for(var i:Number=5; i<18; i+=0.25){
+				var sin:Number = Math.sin(i+shiftI);
+				var cos:Number = Math.cos(i+shiftI);
+				var r:Number = i * 14;
+				
+				var xx:Number = centerX + r * cos;
+				var yy:Number = centerY + r * sin;
+				
+				if( prevPoint ){
+					
+					addWall2(prevPoint.x, prevPoint.y, xx, yy);
+					
+					prevPoint.x = xx;
+					prevPoint.y = yy;
+				}else{
+					prevPoint = new Vector2(xx, yy);
+				}
+			}
+			
+			var closeV:Vector2 = prevPoint.deltaV(new Point2(centerX, centerY));
+			closeV.scale( 85 / closeV.length );
+			addWall2(prevPoint.x, prevPoint.y, prevPoint.x+closeV.x, prevPoint.y+closeV.y);
+			*/
+			
+			
+			reset();
+			
+			/*/
+			centerPartical1 = new Partical(10);   box1.addChild(centerPartical1);
+			centerPartical1.mass = Number.POSITIVE_INFINITY;
+			centerPartical1.position.asign(centerX, centerY);
+			centerPartical1.render();
+			
+			centerPartical1.q = 0; //-35;
+			
+			//*/
+			
+			
+		}
+		
+		
+		private function addWall2(x1:Number, y1:Number, x2:Number, y2:Number):void {
+			addWall(new LineSegment(new Vector2(x1, y1), new Vector2(x2, y2)));
+		}
+		
+		private function addWall(w:LineSegment):void {
+			wallsList.push(w);
+			
+			box1.graphics.lineStyle(0, 0x00ff00);
+			box1.graphics.moveTo(w.vertexA().x, w.vertexA().y);
+			box1.graphics.lineTo(w.vertexB().x, w.vertexB().y);
+		}
+		
+		
+		private static const speedValue:Number = 10;
+		
+		private function addPartical():void {
+			var radius:Number = 10 + Math.floor(Math.random()*5);
+			
+			var p:Partical = new Partical(radius);   particalsList.push(p);   box1.addChild(p);
+			p.position.asign( 510 + 400*(0.5 - Math.random()), 250 + 200*(0.5 - Math.random()) );
+			p.speed.asign( speedValue*(0.5 - Math.random()), speedValue*(0.5 - Math.random()) );
+			
+			//var sign:Number = (Math.random() < 0.5) ? 1 : -1;
+			p.q = -8; // * radius;
+		}
+		
+		
+		
+		
+		private function reset():void {
+			var p:Partical;
+			for each (p in particalsList){
+				box1.removeChild(p);
+			}
+			
+			particalsList = [];
+			
+			
+			// ------------------------------
+			for(var i:uint=0; i<1; i++){
+				var radius:Number = 5 + Math.floor(Math.random()*5);
+				
+				p = new Partical(radius);   particalsList.push(p);   box1.addChild(p);
+				p.position.asign( 510 + 400*(0.5 - Math.random()), 250 + 200*(0.5 - Math.random()) );
+				p.speed.asign( speedValue*(0.5 - Math.random()), speedValue*(0.5 - Math.random()) );
+				
+				//var sign:Number = (Math.random() < 0.5) ? 1 : -1;
+				p.q = 10; // * radius;
+			}
+		}
+		
+		
+		
+		
+		
+		
+		
+		
+		
+		
+		
+		
+		private function nextFrame():void {
+			resetParticals();
+			
+			forceParticals();
+			
+			
+			var c:uint = 0;
+			var remainMoveRate:Boolean;
+			
+			do {
+				remainMoveRate = false;
+				
+				var partical:Partical;
+				
+				var filter:Array = [];
+				var moveList:Array = [];
+				var collisionList:Array = [];
+				for each(partical in particalsList){
+					filter.push(partical);
+					if( partical.moveRate <= 0 ) continue;
+					
+					partical.moveRateTemp = partical.moveRate;
+					partical.targetWall = null;
+					partical.targetPartical = null ;
+					partical.dataChanged = false;
+					
+					// collision to wall
+					for each(var wall:LineSegment in wallsList){
+						var mr:Number = partical.collisionToWall(wall);
+						if( mr >= 0 && mr < partical.moveRateTemp ){
+							partical.moveRateTemp = mr;
+							partical.targetWall = wall;
+							partical.targetPartical = null;
+						}
+					}
+					
+					if( partical.targetWall ){
+						collisionList.push(partical);
+					}else{
+						moveList.push(partical);
+					}
+					
+					//if( partical.moveRate > 0 ) remainMoveRate = true;
+				}
+				
+				
+				if( collisionList.length > 0 ){
+					
+					// sort
+					particalsList.sort(Partical.compareMoveRate);
+					
+					for each(partical in particalsList){
+						if( partical.dataChanged ) continue;
+						
+						partical.dataChanged = true;
+						if( partical.targetWall ){
+							partical.doCollisionWall(partical.targetWall, partical.moveRateTemp);
+						}
+					}
+					
+					remainMoveRate = true;
+				}else{
+					for each(partical in moveList){
+						partical.doMove();
+					}
+				}
+				
+				
+				
+				
+				if( ++c > 100 ){
+					MessageWindow.appendText("[Warning] loop over " + c);
+					break;
+				}
+				
+			} while(remainMoveRate);
+			
+			render();
+		}
+		
+		
+		
+		private function forceParticals():void {
+			var p:Partical;
+			for each(p in particalsList){
+				p.force.asign(0, 0);
+			}
+			
+			var filter:Array = [];
+			for each(var p1:Partical in particalsList){
+				filter.push(p1);
+				
+				for each(var p2:Partical in particalsList){
+					//if( p2 === p1 ) continue;
+					if( filter.indexOf(p2) > -1 ) continue;
+					
+					forcePartical(p1, p2);
+				}
+				
+				if( centerPartical1 )
+					forcePartical(p1, centerPartical1);
+				
+				// Gravity
+				p1.force.y += Ground.gravity;
+			}
+			
+			for each(p in particalsList){
+				p.speed.x += p.force.x / p.mass;
+				p.speed.y += p.force.y / p.mass;
+			}
+		}
+		
+		
+		
+		private var centerPartical1:Partical;
+		
+		private function forcePartical(p1:Partical, p2:Partical):void {
+			var kqq:Number = Partical.K * p1.q * p2.q;
+			var p12:Vector2 = p1.position.deltaV(p2.position);
+			p12.scale( kqq / p12.length );
+			
+			p1.force.concatValue(-p12.x, -p12.y);
+			p2.force.concatValue( p12.x,  p12.y);
+		}
+		
+		
+		
+		
+		
+		private function resetParticals():void {
+			for each(var partical:Partical in particalsList){
+				partical.moveRate = 1;   // speed rate
+			}
+		}
+		
+		
+		private function render():void {
+			//MessageWindow.appendText("=====================");
+			for each(var partical:Partical in particalsList){
+				partical.render();
+				
+				
+				/*
+				if( reduceBtn.hitTestObject(partical) ){
+					particalsList.splice(particalsList.indexOf(partical), 1);
+					
+					if( partical.parent === box1 ){
+						box1.removeChild(partical);
+					}else{
+						MessageWindow.appendDebugText("[Error] parent wrong");
+					}
+					
+					addPartical();
+				}
+				*/
+			}
+		}
+		
+		
+		
+		
+		
+		private function playPause():void {
+			if( _playing ){
+				removeEventListener(Event.ENTER_FRAME, onEnterFrame);
+			}else{
+				addEventListener(Event.ENTER_FRAME, onEnterFrame);
+			}
+			
+			_playing = !_playing;
+		}
+		
+		private var _playing:Boolean;
+		private function onEnterFrame(evt:Event):void {
+			nextFrame();
+		}
+		
+		
+		
+		
+		
+		
+		
+		
+		
+	]]>
+	</mx:Script>
+	
+	<mx:Canvas id="box1" width="100%" height="100%">
+	</mx:Canvas>
+	
+	<!--
+	<mx:Button id="reduceBtn" width="56" height="56" horizontalCenter="-10" verticalCenter="-20"/>
+	-->
+	
+	<mx:Button id="nextFrameBtn" label="nextFrame" click="nextFrame();" bottom="10" left="10"/>
+	<mx:Button id="playBtn" label="play" click="playPause();" bottom="10" left="110"/>
+	<mx:Button id="resetBtn" label="reset" click="reset();" bottom="10" left="170"/>
+	
+	<mx:Button id="addParticalBtn" label="add partical" click="addPartical();" left="263" bottom="10" />
+</mx:Application>
