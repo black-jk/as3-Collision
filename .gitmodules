@@ -1,0 +1,9 @@
+[submodule "as3corelib"]
+	path = as3corelib
+	url = git@github.com:black-jk/as3corelib.git
+[submodule "CoreLib"]
+	path = CoreLib
+	url = git@github.com:black-jk/as3-CoreLib.git
+[submodule "CollisionLib"]
+	path = CollisionLib
+	url = git@github.com:black-jk/as3-CollisionLib.git
